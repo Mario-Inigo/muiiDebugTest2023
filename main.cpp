@@ -22,8 +22,7 @@ struct estructuraMedidas {
 
 float calcularRMS(uint16_t *datos, int longitud);
 
-void calcularDatos(uint16_t *datosV, uint16_t *datosI, int longitud,
-                   estructuraMedidas *medidas);
+void calcularDatos(uint16_t *datosV, uint16_t *datosI, int longitud, estructuraMedidas *medidas);
 
 int main() {
 
@@ -49,8 +48,7 @@ int main() {
   printf("**** La potencia reactiva es %f ****\n", medidas.potenciaReactiva);
   printf("**** La potencia aparente es %f ****\n", medidas.potenciaAparente);
   printf("**** La energia consumida es %f ****\n", medidas.energiaConsumida);
-  printf("**** El factor de potencia es es %f ****\n",
-         medidas.factorDePotencia);
+  printf("**** El factor de potencia es es %f ****\n", medidas.factorDePotencia);
 
   while (true) {
   }
@@ -58,50 +56,63 @@ int main() {
 
 // Esta función calcula el valor RMS
 float calcularRMS(uint16_t *datos, int longitud) {
-  float rms = 0;
-  float datoV;
-  for (int i = 0; i < longitud; i++) {
-    datoV = (((float)datos[i]) / 65536 * 800.0) - 400.0;
-    rms += pow(datoV, 2);
-  }
-  rms = sqrt(rms / longitud);
-  return rms;
+  const float a = 800.0 / 65536.0;
+    const float b = -400.0;
+
+    float rms = 0.0;
+
+    for (int i = 0; i < longitud; ++i) {
+        float datoV = (static_cast<float>(datos[i]) * a) + b;
+        rms += datoV * datoV;
+    }
+
+    return std::sqrt(rms / static_cast<float>(longitud));
 }
 
-void calcularDatos(uint16_t *datosV, uint16_t *datosI, int longitud,
-                   estructuraMedidas *medidas) {
-  float Vrms = 0;
-  float datoV;
-  float Irms = 0;
-  float datoI;
-  float P = 0;
-  float S, Q, FA, E;
-  for (int i = 0; i < longitud; i++) {
-    datoV = (((float)datosV[i]) / 65536 * 800.0) - 400.0;
-    Vrms += pow(datoV, 2);
-  }
-  for (int i = 0; i < longitud; i++) {
-    datoI = (((float)datosI[i]) / 65536 * 5.0) - 2.5;
-    Irms += pow(datoI, 2);
-  }
-  for (int i = 0; i < longitud; i++) {
-    datoV = (((float)datosV[i]) / 65536 * 800.0) - 400.0;
-    datoI = (((float)datosI[i]) / 65536 * 5.0) - 2.5;
-    P += datoV * datoI;
-  }
+void calcularDatos(uint16_t *datosV, uint16_t *datosI, int longitud, estructuraMedidas *medidas) {
+    const float aV = 800.0 / 65536.0;
+    const float bV = -400.0;
+    const float aI = 5.0 / 65536.0;
+    const float bI = -2.5;
 
-  Vrms = sqrt(Vrms / longitud);
-  Irms = sqrt(Irms / longitud);
-  P = P / longitud;
-  S = Vrms * Irms;
-  Q = sqrt(pow(S, 2) - pow(P, 2));
-  FA = P / S;
-  E = P/fs*longitudTrama/60/60/1000;
-  medidas->vrms = Vrms;
-  medidas->irms = Irms;
-  medidas->potenciaActiva = P;
-  medidas->potenciaAparente = S;
-  medidas->potenciaReactiva = Q;
-  medidas->factorDePotencia = FA;
-  medidas->energiaConsumida+=E;
+    float Vrms = 0.0;
+    float Irms = 0.0;
+    float P = 0.0;
+    float S = 0.0;
+    float Q = 0.0;
+    float FA = 0.0;
+    float E = 0.0;
+
+    for (int i = 0; i < longitud; ++i) {
+        float datoV = ((static_cast<float>(datosV[i]) * aV) + bV);
+        float datoI = ((static_cast<float>(datosI[i]) * aI) + bI);
+
+        Vrms += datoV * datoV;
+        Irms += datoI * datoI;
+        P += datoV * datoI;
+    }
+
+    Vrms = std::sqrt(Vrms / static_cast<float>(longitud));
+    Irms = std::sqrt(Irms / static_cast<float>(longitud));
+    P /= static_cast<float>(longitud);
+
+    S = Vrms * Irms;
+    Q = std::sqrt(S * S - P * P);
+
+    if (S > 0) {
+        FA = P / S;
+    } else {
+        FA = 0.0; // Para el caso de S == 0 para evitar divisiones por cero
+    }
+
+    E = P / fs * longitudTrama / 60 / 60 / 1000;
+
+    // Asignar los resultados a la estructura de medidas
+    medidas->vrms = Vrms;
+    medidas->irms = Irms;
+    medidas->potenciaActiva = P;
+    medidas->potenciaAparente = S;
+    medidas->potenciaReactiva = Q;
+    medidas->factorDePotencia = FA;
+    medidas->energiaConsumida += E;
 }
