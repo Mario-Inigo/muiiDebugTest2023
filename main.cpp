@@ -1,6 +1,7 @@
 #include "mbed.h"
 #include "datos.h"
 #include "math.h"
+#include <cstdint>
 
 
 #define longitudTrama 200
@@ -56,56 +57,45 @@ int main() {
 
 // Esta función calcula el valor RMS
 float calcularRMS(uint16_t *datos, int longitud) {
-  const float a = 800.0 / 65536.0;
+    const float a = 800.0 / 65536.0;
     const float b = -400.0;
 
-    float rms = 0.0;
+    intmax_t rms = 0;
 
     for (int i = 0; i < longitud; ++i) {
-        float datoV = (static_cast<float>(datos[i]) * a) + b;
-        rms += datoV * datoV;
+        rms += (int)datos[i] * (int)datos[i];
     }
-
-    return std::sqrt(rms / static_cast<float>(longitud));
+    
+    return sqrt(rms*a*a/longitud +b*(-b));
 }
+
 
 void calcularDatos(uint16_t *datosV, uint16_t *datosI, int longitud, estructuraMedidas *medidas) {
     const float aV = 800.0 / 65536.0;
     const float bV = -400.0;
     const float aI = 5.0 / 65536.0;
     const float bI = -2.5;
-
-    float Vrms = 0.0;
-    float Irms = 0.0;
-    float P = 0.0;
-    float S = 0.0;
-    float Q = 0.0;
-    float FA = 0.0;
-    float E = 0.0;
+ 
+ 
+    intmax_t rms_i = 0;
+    intmax_t rms_v = 0;
+    intmax_t p_calculo = 0;
 
     for (int i = 0; i < longitud; ++i) {
-        float datoV = ((static_cast<float>(datosV[i]) * aV) + bV);
-        float datoI = ((static_cast<float>(datosI[i]) * aI) + bI);
-
-        Vrms += datoV * datoV;
-        Irms += datoI * datoI;
-        P += datoV * datoI;
+        rms_v += (int)datosV[i] * (int)datosV[i];
+        rms_i += (int)datosI[i] * (int)datosI[i];
+        p_calculo += (int)datosV[i] * (int)datosI[i];
     }
+    
 
-    Vrms = std::sqrt(Vrms / static_cast<float>(longitud));
-    Irms = std::sqrt(Irms / static_cast<float>(longitud));
-    P /= static_cast<float>(longitud);
+    float Vrms = sqrt(rms_v * aV *aV / longitud + bV*(-bV));
+    float Irms = sqrt(rms_i * aI * aI/ longitud + bI*(-bI));
+    float P = p_calculo * aV * aI / longitud - (-bV)*(-bI);
 
-    S = Vrms * Irms;
-    Q = std::sqrt(S * S - P * P);
-
-    if (S > 0) {
-        FA = P / S;
-    } else {
-        FA = 0.0; // Para el caso de S == 0 para evitar divisiones por cero
-    }
-
-    E = P / fs * longitudTrama / 60 / 60 / 1000;
+    float S = Vrms * Irms;
+    float Q = sqrt(S * S - P * P);
+    float FA = P / S;
+    float E = P /fs*longitudTrama/60/60/1000;
 
     // Asignar los resultados a la estructura de medidas
     medidas->vrms = Vrms;
